@@ -1,0 +1,56 @@
+version: '3'
+services:
+  
+  stan:
+    build:
+        context: ./nats-streaming
+    ports:
+      - "4222:4222"
+    expose:
+      - "4222"
+
+  db:
+    image: amazon/dynamodb-local
+    ports:
+      - "8000:8000"
+    command:  -Djava.library.path=./DynamoDBLocal_lib -jar DynamoDBLocal.jar -sharedDb -inMemory
+
+  builddb:
+    image: sjback/builddb
+    env_file:
+      - ./db.env
+    depends_on:
+      - "db"
+  
+  dynamodb-admin:
+    image: aaronshaf/dynamodb-admin
+    ports:
+      - "8001:8001"
+    depends_on:
+      - "db"
+    expose:
+      - "8001"
+    environment:
+      - DYNAMO_ENDPOINT=http://db:8000
+  
+  registry:
+    build:
+      context: ../registry
+    ports:
+      - 7775:7775
+      - 7776:7776
+    env_file:
+      - ../registry/dev.env
+    depends_on:
+      - "db"
+  
+  streamer:
+    build:
+      context: ../streamer
+    ports:
+      - 7786:7786
+    env_file:
+      - ../streamer/dev.env
+    depends_on:
+      - "registry"
+      - "stan"
